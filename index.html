@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Expense Manager</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #f0f4ff, #d9e4ff);
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin: 20px auto;
+      max-width: 600px;
+    }
+    input, select, button {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      background: #4a90e2;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #357ab8;
+    }
+    .expense {
+      background: #f9f9f9;
+      border-left: 5px solid #4a90e2;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 6px;
+    }
+    .balances {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .balance-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .positive { color: green; font-weight: bold; }
+    .negative { color: red; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Expense Manager</h1>
+
+  <div class="card">
+    <h3>Add User</h3>
+    <input id="userName" placeholder="Name">
+    <button onclick="addUser()">Add User</button>
+    <p id="users"></p>
+  </div>
+
+  <div class="card">
+    <h3>Add Expense</h3>
+    <input id="expenseTitle" placeholder="Title">
+    <input id="expenseAmount" type="number" placeholder="Amount">
+    <select id="payer"></select>
+    <div id="participants"></div>
+    <button onclick="addExpense()">Add Expense</button>
+  </div>
+
+  <div class="card">
+    <h3>Expenses</h3>
+    <div id="expenses"></div>
+  </div>
+
+  <div class="card">
+    <h3>Balances</h3>
+    <div id="balances" class="balances"></div>
+  </div>
+
+<script>
+  const users = [];
+  const expenses = [];
+  const settlements = [];
+
+  function addUser() {
+    const name = document.getElementById("userName").value;
+    if (!name) return;
+    const user = { id: Date.now().toString(), name };
+    users.push(user);
+    renderUsers();
+    renderPayerOptions();
+    renderParticipants();
+    document.getElementById("userName").value = "";
+  }
+
+  function renderUsers() {
+    document.getElementById("users").innerHTML =
+      "👥 " + users.map(u => u.name).join(", ");
+  }
+
+  function renderPayerOptions() {
+    const payerSelect = document.getElementById("payer");
+    payerSelect.innerHTML = users.map(u =>
+      `<option value="${u.id}">${u.name}</option>`
+    ).join("");
+  }
+
+  function renderParticipants() {
+    const div = document.getElementById("participants");
+    div.innerHTML = users.map(u =>
+      `<label><input type="checkbox" value="${u.id}"> ${u.name}</label>`
+    ).join("<br>");
+  }
+
+  function addExpense() {
+    const title = document.getElementById("expenseTitle").value;
+    const amount = parseFloat(document.getElementById("expenseAmount").value);
+    const payer = document.getElementById("payer").value;
+    const participants = Array.from(document.querySelectorAll("#participants input:checked"))
+      .map(cb => cb.value);
+
+    if (!title || !amount || !payer || participants.length === 0) return;
+
+    const expense = { id: Date.now().toString(), title, amount, payer, participants };
+    expenses.push(expense);
+    renderExpenses();
+    renderBalances();
+    document.getElementById("expenseTitle").value = "";
+    document.getElementById("expenseAmount").value = "";
+  }
+
+  function renderExpenses() {
+    document.getElementById("expenses").innerHTML =
+      expenses.map(e => `<div class="expense">📌 ${e.title}: ₹${e.amount}</div>`).join("");
+  }
+
+  function renderBalances() {
+    const balances = {};
+    users.forEach(u => balances[u.id] = 0);
+
+    expenses.forEach(exp => {
+      const split = exp.amount / exp.participants.length;
+      exp.participants.forEach(pid => {
+        if (pid !== exp.payer) {
+          balances[pid] -= split;
+          balances[exp.payer] += split;
+        }
+      });
+    });
+
+    settlements.forEach(s => {
+      balances[s.from] += s.amount;
+      balances[s.to] -= s.amount;
+    });
+
+    document.getElementById("balances").innerHTML =
+      users.map(u => {
+        const val = balances[u.id].toFixed(2);
+        const cls = val >= 0 ? "positive" : "negative";
+        return `<div class="balance-card">
+                  <h4>${u.name}</h4>
+                  <p class="${cls}">₹${val}</p>
+                  <button onclick="settle('${u.id}')">Settle Up</button>
+                </div>`;
+      }).join("");
+  }
+
+  function settle(userId) {
+    const amount = prompt("Enter amount to settle:");
+    const toUser = prompt("Enter the name of the person you are paying:");
+    const to = users.find(u => u.name === toUser);
+    if (!amount || !to) return;
+
+    settlements.push({ from: userId, to: to.id, amount: parseFloat(amount) });
+    renderBalances();
+  }
+</script>
+</body>
+</html>
